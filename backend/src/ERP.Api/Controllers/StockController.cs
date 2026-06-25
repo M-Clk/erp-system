@@ -15,4 +15,21 @@ public class StockController(IStockService stock) : ControllerBase
     [HttpGet("movements")]
     public async Task<ActionResult<IReadOnlyList<StockMovementDto>>> GetMovements(CancellationToken cancellationToken)
         => Ok(await stock.GetMovementsAsync(cancellationToken));
+
+    [HttpPost("movements")]
+    public async Task<ActionResult<StockMovementDto>> AddMovement(
+        [FromBody] AddStockMovementRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await stock.AddMovementAsync(request, cancellationToken);
+            return CreatedAtAction(nameof(GetMovements), result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }
+

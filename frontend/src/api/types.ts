@@ -64,6 +64,15 @@ export type CurrentStockDto = {
   quantity: number;
 };
 
+export type AddStockMovementRequest = {
+  productId: string;
+  warehouseId: string;
+  type: number;
+  quantity: number;
+  unitPrice: number;
+};
+
+
 // ─── POS Types ───────────────────────────────────────────────────────────────
 
 export type PosProductDto = {

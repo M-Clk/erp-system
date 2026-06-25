@@ -1,5 +1,6 @@
 using ERP.Application.Abstractions;
 using ERP.Application.Dto;
+using ERP.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace ERP.Application.Services;
@@ -8,31 +9,57 @@ public interface IStockService
 {
     Task<IReadOnlyList<CurrentStockDto>> GetCurrentAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<StockMovementDto>> GetMovementsAsync(CancellationToken cancellationToken = default);
+    Task<StockMovementDto> AddMovementAsync(AddStockMovementRequest request, CancellationToken cancellationToken = default);
 }
 
 public class StockService(IErpDbContext db) : IStockService
 {
-    public Task<IReadOnlyList<CurrentStockDto>> GetCurrentAsync(CancellationToken cancellationToken = default)
+    // Only inward types are allowed for manual entry
+    private static readonly HashSet<int> AllowedManualTypes = [1, 3, 5, 6];
+
+    public async Task<IReadOnlyList<CurrentStockDto>> GetCurrentAsync(CancellationToken cancellationToken = default)
     {
-        return db.StockMovements.AsNoTracking()
-            .GroupBy(x => new
+        // Group by IDs only (EF Core cannot evaluate navigation props inside GroupBy)
+        var grouped = await db.StockMovements
+            .AsNoTracking()
+            .GroupBy(x => new { x.ProductId, x.WarehouseId })
+            .Select(g => new
             {
-                x.ProductId,
-                ProductCode = x.Product != null ? x.Product.Code : string.Empty,
-                ProductName = x.Product != null ? x.Product.Name : string.Empty,
-                x.WarehouseId,
-                WarehouseName = x.Warehouse != null ? x.Warehouse.Name : string.Empty
+                g.Key.ProductId,
+                g.Key.WarehouseId,
+                Quantity = g.Sum(m => m.Quantity)
             })
-            .Select(x => new CurrentStockDto(
-                x.Key.ProductId,
-                x.Key.ProductCode,
-                x.Key.ProductName,
-                x.Key.WarehouseId,
-                x.Key.WarehouseName,
-                x.Sum(m => m.Quantity)))
+            .ToListAsync(cancellationToken);
+
+        // Resolve names with separate lookups (executed as single queries)
+        var productIds = grouped.Select(g => g.ProductId).Distinct().ToList();
+        var warehouseIds = grouped.Select(g => g.WarehouseId).Distinct().ToList();
+
+        var products = await db.Products
+            .AsNoTracking()
+            .Where(p => productIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.Code, p.Name })
+            .ToListAsync(cancellationToken);
+
+        var warehouses = await db.Warehouses
+            .AsNoTracking()
+            .Where(w => warehouseIds.Contains(w.Id))
+            .Select(w => new { w.Id, w.Name })
+            .ToListAsync(cancellationToken);
+
+        var productMap = products.ToDictionary(p => p.Id);
+        var warehouseMap = warehouses.ToDictionary(w => w.Id);
+
+        return grouped
+            .Select(g => new CurrentStockDto(
+                g.ProductId,
+                productMap.TryGetValue(g.ProductId, out var p) ? p.Code : string.Empty,
+                productMap.TryGetValue(g.ProductId, out var p2) ? p2.Name : string.Empty,
+                g.WarehouseId,
+                warehouseMap.TryGetValue(g.WarehouseId, out var w) ? w.Name : string.Empty,
+                g.Quantity))
             .OrderBy(x => x.ProductName)
-            .ToListAsync(cancellationToken)
-            .ContinueWith<IReadOnlyList<CurrentStockDto>>(x => x.Result, cancellationToken);
+            .ToList();
     }
 
     public Task<IReadOnlyList<StockMovementDto>> GetMovementsAsync(CancellationToken cancellationToken = default)
@@ -55,4 +82,51 @@ public class StockService(IErpDbContext db) : IStockService
             .ToListAsync(cancellationToken)
             .ContinueWith<IReadOnlyList<StockMovementDto>>(x => x.Result, cancellationToken);
     }
+
+    public async Task<StockMovementDto> AddMovementAsync(AddStockMovementRequest request, CancellationToken cancellationToken = default)
+    {
+        if (!AllowedManualTypes.Contains(request.Type))
+            throw new InvalidOperationException($"Movement type {request.Type} cannot be added manually.");
+
+        if (request.Quantity <= 0)
+            throw new InvalidOperationException("Quantity must be greater than zero.");
+
+        var product = await db.Products.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == request.ProductId && p.IsActive, cancellationToken)
+            ?? throw new InvalidOperationException("Product not found or inactive.");
+
+        var warehouse = await db.Warehouses.AsNoTracking()
+            .FirstOrDefaultAsync(w => w.Id == request.WarehouseId, cancellationToken)
+            ?? throw new InvalidOperationException("Warehouse not found.");
+
+        var movement = new StockMovement
+        {
+            Id = Guid.NewGuid(),
+            ProductId = request.ProductId,
+            WarehouseId = request.WarehouseId,
+            Type = (StockMovementType)request.Type,
+            Quantity = request.Quantity,
+            UnitPrice = request.UnitPrice,
+            ReferenceType = "MANUAL",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.StockMovements.Add(movement);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new StockMovementDto(
+            movement.Id,
+            product.Id,
+            product.Code,
+            product.Name,
+            warehouse.Id,
+            warehouse.Name,
+            movement.Type,
+            movement.Quantity,
+            movement.UnitPrice,
+            movement.ReferenceType,
+            movement.ReferenceId,
+            movement.CreatedAt);
+    }
 }
+

@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
+import EditIcon from "@mui/icons-material/Edit";
 import { DataTable } from "../components/DataTable";
 import { apiClient } from "../api/apiClient";
 import { ProductDto, ReferenceDataDto } from "../api/types";
@@ -22,6 +23,7 @@ import { ProductDto, ReferenceDataDto } from "../api/types";
 export function ProductsPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   
   const references = useQuery({
     queryKey: ["reference-data"],
@@ -42,12 +44,13 @@ export function ProductsPage() {
     unitId: "", 
     purchasePrice: 0, 
     salePrice: 0, 
-    minStock: 0 
+    minStock: 0,
+    isActive: true
   });
 
   // Automatically select the first items once reference data loads
   useEffect(() => {
-    if (references.data) {
+    if (references.data && !editingProductId) {
       setForm(prev => ({
         ...prev,
         brandId: prev.brandId || references.data.brands[0]?.id || "",
@@ -55,33 +58,82 @@ export function ProductsPage() {
         unitId: prev.unitId || references.data.units[0]?.id || ""
       }));
     }
-  }, [references.data]);
+  }, [references.data, editingProductId]);
+
+  const resetForm = () => {
+    setForm({
+      code: "",
+      barcode: "",
+      name: "",
+      brandId: references.data?.brands[0]?.id ?? "",
+      categoryId: references.data?.categories[0]?.id ?? "",
+      unitId: references.data?.units[0]?.id ?? "",
+      purchasePrice: 0,
+      salePrice: 0,
+      minStock: 0,
+      isActive: true
+    });
+    setEditingProductId(null);
+    setIsFormOpen(false);
+  };
 
   const create = useMutation({
     mutationFn: async () => {
-      return apiClient.post("/products", form);
+      return apiClient.post("/products", {
+        code: form.code,
+        barcode: form.barcode,
+        name: form.name,
+        brandId: form.brandId,
+        categoryId: form.categoryId,
+        unitId: form.unitId,
+        purchasePrice: form.purchasePrice,
+        salePrice: form.salePrice,
+        minStock: form.minStock
+      });
     },
     onSuccess: () => {
-      setForm({
-        code: "",
-        barcode: "",
-        name: "",
-        brandId: references.data?.brands[0]?.id ?? "",
-        categoryId: references.data?.categories[0]?.id ?? "",
-        unitId: references.data?.units[0]?.id ?? "",
-        purchasePrice: 0,
-        salePrice: 0,
-        minStock: 0
-      });
-      setIsFormOpen(false);
+      resetForm();
       queryClient.invalidateQueries({ queryKey: ["products"] });
     }
   });
 
+  const update = useMutation({
+    mutationFn: async (id: string) => {
+      return apiClient.put(`/products/${id}`, form);
+    },
+    onSuccess: () => {
+      resetForm();
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    }
+  });
+
+  function startEdit(product: ProductDto) {
+    setEditingProductId(product.id);
+    setForm({
+      code: product.code,
+      barcode: product.barcode || "",
+      name: product.name,
+      brandId: product.brandId,
+      categoryId: product.categoryId,
+      unitId: product.unitId,
+      purchasePrice: product.purchasePrice,
+      salePrice: product.salePrice,
+      minStock: product.minStock,
+      isActive: product.isActive
+    });
+    setIsFormOpen(true);
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault();
-    create.mutate();
+    if (editingProductId) {
+      update.mutate(editingProductId);
+    } else {
+      create.mutate();
+    }
   }
+
+  const isPending = create.isPending || update.isPending;
 
   return (
     <Stack spacing={3}>
@@ -97,9 +149,15 @@ export function ProductsPage() {
         </Box>
         <Button
           variant="contained"
-          color="primary"
+          color={isFormOpen ? "secondary" : "primary"}
           startIcon={isFormOpen ? <CloseIcon /> : <AddIcon />}
-          onClick={() => setIsFormOpen(!isFormOpen)}
+          onClick={() => {
+            if (isFormOpen) {
+              resetForm();
+            } else {
+              setIsFormOpen(true);
+            }
+          }}
         >
           {isFormOpen ? "Vazgeç" : "Ürün Ekle"}
         </Button>
@@ -109,7 +167,7 @@ export function ProductsPage() {
       <Collapse in={isFormOpen}>
         <Paper component="form" onSubmit={submit} sx={{ p: 3, borderRadius: 2 }}>
           <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
-            Yeni Ürün Bilgileri
+            {editingProductId ? "Ürün Bilgilerini Güncelle" : "Yeni Ürün Bilgileri"}
           </Typography>
           
           <Grid container spacing={2}>
@@ -185,7 +243,7 @@ export function ProductsPage() {
             </Grid>
 
             {/* Financials & Stock */}
-            <Grid item xs={12} sm={4} md={4}>
+            <Grid item xs={12} sm={4} md={3}>
               <TextField 
                 label="Alış Fiyatı (₺)" 
                 type="number" 
@@ -194,7 +252,7 @@ export function ProductsPage() {
                 fullWidth 
               />
             </Grid>
-            <Grid item xs={12} sm={4} md={4}>
+            <Grid item xs={12} sm={4} md={3}>
               <TextField 
                 label="Satış Fiyatı (₺)" 
                 type="number" 
@@ -203,7 +261,7 @@ export function ProductsPage() {
                 fullWidth 
               />
             </Grid>
-            <Grid item xs={12} sm={4} md={4}>
+            <Grid item xs={12} sm={4} md={3}>
               <TextField 
                 label="Min. Stok Uyarısı" 
                 type="number" 
@@ -212,14 +270,30 @@ export function ProductsPage() {
                 fullWidth 
               />
             </Grid>
+            
+            {/* Status Select for Update Mode */}
+            {editingProductId && (
+              <Grid item xs={12} sm={4} md={3}>
+                <TextField
+                  select
+                  label="Durum"
+                  value={form.isActive ? "true" : "false"}
+                  onChange={(e) => setForm({ ...form, isActive: e.target.value === "true" })}
+                  fullWidth
+                >
+                  <MenuItem value="true">Aktif</MenuItem>
+                  <MenuItem value="false">Pasif</MenuItem>
+                </TextField>
+              </Grid>
+            )}
           </Grid>
 
           <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end", gap: 1 }}>
-            <Button variant="outlined" onClick={() => setIsFormOpen(false)}>
+            <Button variant="outlined" onClick={resetForm}>
               Vazgeç
             </Button>
-            <Button type="submit" variant="contained" disabled={create.isPending || !references.data}>
-              {create.isPending ? "Kaydediliyor..." : "Ürünü Kaydet"}
+            <Button type="submit" variant="contained" disabled={isPending || !references.data}>
+              {isPending ? "Kaydediliyor..." : (editingProductId ? "Ürünü Güncelle" : "Ürünü Kaydet")}
             </Button>
           </Box>
         </Paper>
@@ -227,7 +301,7 @@ export function ProductsPage() {
 
       {/* Data Table */}
       <DataTable
-        columns={["Kod", "Ürün Adı", "Marka", "Kategori", "Birim", "Satış Fiyatı", "Durum"]}
+        columns={["Kod", "Ürün Adı", "Marka", "Kategori", "Birim", "Satış Fiyatı", "Durum", "İşlemler"]}
         rows={(products.data ?? []).map((p) => [
           <Typography variant="body2" fontWeight={700} color="primary.main">{p.code}</Typography>,
           p.name,
@@ -241,9 +315,13 @@ export function ProductsPage() {
             size="small" 
             variant="outlined" 
             sx={{ fontWeight: 600 }}
-          />
+          />,
+          <IconButton color="primary" onClick={() => startEdit(p)} size="small" title="Düzenle">
+            <EditIcon fontSize="small" />
+          </IconButton>
         ])}
       />
     </Stack>
   );
 }
+

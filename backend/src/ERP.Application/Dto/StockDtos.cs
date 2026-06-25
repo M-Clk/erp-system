@@ -23,3 +23,14 @@ public record StockMovementDto(
     string ReferenceType,
     Guid? ReferenceId,
     DateTime CreatedAt);
+
+/// <summary>
+/// Allowed inward movement types: Purchase=1, ReturnIn=3, StockCount=5, TransferIn=6
+/// </summary>
+public record AddStockMovementRequest(
+    Guid ProductId,
+    Guid WarehouseId,
+    int Type,
+    decimal Quantity,
+    decimal UnitPrice);
+
