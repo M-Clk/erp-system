@@ -16,13 +16,13 @@ public class SaleService(IErpDbContext db) : ISaleService
 {
     public Task<IReadOnlyList<SaleDto>> GetAsync(CancellationToken cancellationToken = default)
     {
-        return SaleQuery().OrderByDescending(x => x.CreatedAt).ToListAsync(cancellationToken)
+        return SaleQuery(db.Sales.AsNoTracking().OrderByDescending(x => x.CreatedAt)).ToListAsync(cancellationToken)
             .ContinueWith<IReadOnlyList<SaleDto>>(x => x.Result, cancellationToken);
     }
 
     public Task<SaleDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return SaleQuery().FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+        return SaleQuery(db.Sales.AsNoTracking().Where(x => x.Id == id)).FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<SaleDto> CreateAsync(CreateSaleRequest request, CancellationToken cancellationToken = default)
@@ -127,10 +127,9 @@ public class SaleService(IErpDbContext db) : ISaleService
         }
     }
 
-    private IQueryable<SaleDto> SaleQuery()
+    private IQueryable<SaleDto> SaleQuery(IQueryable<Sale> query)
     {
-        return db.Sales.AsNoTracking()
-            .Select(x => new SaleDto(
+        return query.Select(x => new SaleDto(
                 x.Id,
                 x.SaleNo,
                 x.CustomerId,
