@@ -18,9 +18,10 @@ public class PosService(IErpDbContext db) : IPosService
     {
         return await db.Terminals
             .AsNoTracking()
+            .Include(x => x.Warehouse)
             .Where(x => x.IsActive)
             .OrderBy(x => x.Code)
-            .Select(x => new TerminalDto(x.Id, x.Code, x.Name, x.WarehouseId, x.IsActive))
+            .Select(x => new TerminalDto(x.Id, x.Code, x.Name, x.WarehouseId, x.Warehouse != null ? x.Warehouse.Name : string.Empty, x.IsActive))
             .ToListAsync(cancellationToken);
     }
 

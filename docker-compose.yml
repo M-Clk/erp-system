@@ -6,6 +6,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=erpdb;Username=erp;Password=erp
+      Jwt__Secret: ERP_System_Super_Secret_Key_2024_AtLeast32Chars!
+      Jwt__ExpiryMinutes: "15"
     ports:
       - "5000:80"
     depends_on:

@@ -27,6 +27,7 @@ using (var scope = app.Services.CreateScope())
 
 app.UseCors("LanClients");
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

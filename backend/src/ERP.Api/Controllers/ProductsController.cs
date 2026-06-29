@@ -1,11 +1,13 @@
 using ERP.Application.Dto;
 using ERP.Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ERP.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ProductsController(IProductService products, IPosService pos) : ControllerBase
 {
     [HttpGet]
@@ -27,6 +29,7 @@ public class ProductsController(IProductService products, IPosService pos) : Con
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<ProductDto>> Create(CreateProductRequest request, CancellationToken cancellationToken)
     {
         var product = await products.CreateAsync(request, cancellationToken);
@@ -34,10 +37,12 @@ public class ProductsController(IProductService products, IPosService pos) : Con
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> Update(Guid id, UpdateProductRequest request, CancellationToken cancellationToken)
         => await products.UpdateAsync(id, request, cancellationToken) ? NoContent() : NotFound();
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
         => await products.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
 }

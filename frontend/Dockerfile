@@ -1,9 +1,16 @@
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package.json package.json
-RUN npm install
+
+# pnpm'i etkinleştir
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Önce bağımlılık dosyalarını kopyala (cache katmanı için)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# Sonra kaynak kodu kopyala ve build et
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf

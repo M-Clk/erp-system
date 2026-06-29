@@ -15,6 +15,7 @@ public class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbContext(op
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<Terminal> Terminals => Set<Terminal>();
     public DbSet<Unit> Units => Set<Unit>();
+    public DbSet<User> Users => Set<User>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
 
     public async Task<IErpTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
@@ -144,6 +145,31 @@ public class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbContext(op
             entity.HasIndex(x => new { x.ProductId, x.WarehouseId, x.CreatedAt });
             entity.HasOne(x => x.Product).WithMany(x => x.StockMovements).HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Warehouse).WithMany(x => x.StockMovements).HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("Users");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Username).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.Email).HasMaxLength(180).IsRequired();
+            entity.Property(x => x.PasswordHash).IsRequired();
+            entity.Property(x => x.Role).HasMaxLength(40).IsRequired();
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).IsRequired();
+            entity.HasIndex(x => x.Username).IsUnique();
+            entity.HasIndex(x => x.Email).IsUnique();
+            entity.HasData(new User
+            {
+                Id = SeedIds.AdminUserId,
+                Username = "admin",
+                Email = "admin@erp.local",
+                // BCrypt hash of "admin123"
+                PasswordHash = "$2a$11$7qk/sMtnaFFBbZcuqLskCu1/iqF8LuMTvm3JVP8/RxvMOF36Xq4ZO",
+                Role = "Admin",
+                IsActive = true,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            });
         });
     }
 }

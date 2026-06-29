@@ -1,3 +1,29 @@
+// ─── User / Auth Types ──────────────────────────────────────────────────────
+
+export type UserDto = {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type CreateUserRequest = {
+  username: string;
+  email: string;
+  password: string;
+  role: string;
+};
+
+export type UpdateUserRequest = {
+  username: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  newPassword?: string;
+};
+
 export type LookupDto = {
   id: string;
   code: string;
@@ -88,7 +114,34 @@ export type TerminalDto = {
   code: string;
   name: string;
   warehouseId: string;
+  warehouseName: string;
   isActive: boolean;
+};
+
+export type CreateTerminalRequest = {
+  code: string;
+  name: string;
+  warehouseId: string;
+};
+
+export type UpdateTerminalRequest = {
+  code: string;
+  name: string;
+  warehouseId: string;
+  isActive: boolean;
+};
+
+export type WarehouseDto = {
+  id: string;
+  name: string;
+};
+
+export type CreateWarehouseRequest = {
+  name: string;
+};
+
+export type UpdateWarehouseRequest = {
+  name: string;
 };
 
 export type CartItem = {

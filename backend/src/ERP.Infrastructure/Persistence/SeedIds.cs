@@ -9,5 +9,6 @@ internal static class SeedIds
     public static readonly Guid Terminal1Id = Guid.Parse("55555555-5555-5555-5555-555555555551");
     public static readonly Guid Terminal2Id = Guid.Parse("55555555-5555-5555-5555-555555555552");
     public static readonly Guid Terminal3Id = Guid.Parse("55555555-5555-5555-5555-555555555553");
+    public static readonly Guid AdminUserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 }
 

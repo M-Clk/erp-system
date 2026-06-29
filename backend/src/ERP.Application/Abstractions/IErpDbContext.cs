@@ -14,6 +14,7 @@ public interface IErpDbContext
     DbSet<StockMovement> StockMovements { get; }
     DbSet<Terminal> Terminals { get; }
     DbSet<Unit> Units { get; }
+    DbSet<User> Users { get; }
     DbSet<Warehouse> Warehouses { get; }
 
     Task<IErpTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);

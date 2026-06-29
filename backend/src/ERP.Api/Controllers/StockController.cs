@@ -1,11 +1,13 @@
 using ERP.Application.Dto;
 using ERP.Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ERP.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class StockController(IStockService stock) : ControllerBase
 {
     [HttpGet("current")]
@@ -17,6 +19,7 @@ public class StockController(IStockService stock) : ControllerBase
         => Ok(await stock.GetMovementsAsync(cancellationToken));
 
     [HttpPost("movements")]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<StockMovementDto>> AddMovement(
         [FromBody] AddStockMovementRequest request,
         CancellationToken cancellationToken)
@@ -33,6 +36,7 @@ public class StockController(IStockService stock) : ControllerBase
     }
 
     [HttpPost("movements/{id:guid}/cancel")]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> CancelMovement(
         Guid id,
         CancellationToken cancellationToken)

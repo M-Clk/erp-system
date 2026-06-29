@@ -29,6 +29,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import ClearIcon from "@mui/icons-material/Clear";
 import { apiClient } from "../api/apiClient";
 import { CustomerDto } from "../api/types";
+import { useAuth } from "../auth/AuthContext";
 import {
   Paper as MuiPaper,
   Table,
@@ -46,9 +47,10 @@ interface CustomerTableProps {
   customers: CustomerDto[];
   onEdit: (customer: CustomerDto) => void;
   onDelete: (customer: CustomerDto) => void;
+  canManage?: boolean;
 }
 
-function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProps) {
+function CustomerTable({ customers, onEdit, onDelete, canManage = true }: CustomerTableProps) {
   const theme = useTheme();
 
   return (
@@ -72,7 +74,7 @@ function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProps) {
                 theme.palette.mode === "dark" ? "background.paper" : "#F8FAFC",
             }}
           >
-            {["Kod", "Ad Soyad", "Telefon", "İşlemler"].map((col) => (
+            {(canManage ? ["Kod", "Ad Soyad", "Telefon", "İşlemler"] : ["Kod", "Ad Soyad", "Telefon"]).map((col) => (
               <TableCell
                 key={col}
                 sx={{
@@ -94,7 +96,7 @@ function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProps) {
           {customers.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={4}
+                colSpan={canManage ? 4 : 3}
                 align="center"
                 sx={{ py: 6, color: "text.secondary" }}
               >
@@ -148,27 +150,29 @@ function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProps) {
                     </Typography>
                   )}
                 </TableCell>
-                <TableCell sx={{ py: 1, px: 2, textAlign: "center" }}>
-                  <Tooltip title="Düzenle">
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => onEdit(c)}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Sil">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => onDelete(c)}
-                      sx={{ ml: 0.5 }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
+                {canManage && (
+                  <TableCell sx={{ py: 1, px: 2, textAlign: "center" }}>
+                    <Tooltip title="Düzenle">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => onEdit(c)}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Sil">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => onDelete(c)}
+                        sx={{ ml: 0.5 }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                )}
               </TableRow>
             ))
           )}
@@ -181,6 +185,8 @@ function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProps) {
 // ─── Ana Sayfa ───────────────────────────────────────────────────────────────
 
 export function CustomersPage() {
+  const { user } = useAuth();
+  const canManage = user?.role === "Admin" || user?.role === "Manager";
   const queryClient = useQueryClient();
 
   // Yeni müşteri formu
@@ -301,14 +307,16 @@ export function CustomersPage() {
             Müşteri kayıtlarını görüntüleyin ve yönetin
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={isFormOpen ? <CloseIcon /> : <AddIcon />}
-          onClick={() => setIsFormOpen(!isFormOpen)}
-        >
-          {isFormOpen ? "Vazgeç" : "Müşteri Ekle"}
-        </Button>
+        {canManage && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={isFormOpen ? <CloseIcon /> : <AddIcon />}
+            onClick={() => setIsFormOpen(!isFormOpen)}
+          >
+            {isFormOpen ? "Vazgeç" : "Müşteri Ekle"}
+          </Button>
+        )}
       </Box>
 
       {/* Expandable Create Form */}
@@ -391,6 +399,7 @@ export function CustomersPage() {
         customers={filtered}
         onEdit={openEdit}
         onDelete={openDelete}
+        canManage={canManage}
       />
 
       {/* ── Edit Dialog ───────────────────────────────────────────────────── */}

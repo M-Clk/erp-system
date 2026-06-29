@@ -5,7 +5,11 @@ public record TerminalDto(
     string Code,
     string Name,
     Guid WarehouseId,
+    string WarehouseName,
     bool IsActive);
+
+public record CreateTerminalRequest(string Code, string Name, Guid WarehouseId);
+public record UpdateTerminalRequest(string Code, string Name, Guid WarehouseId, bool IsActive);
 
 public record PosProductDto(
     Guid Id,

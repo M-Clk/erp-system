@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
   AppBar,
   Box,
   Button,
-  Container,
   CssBaseline,
   Toolbar,
   Typography,
-  ThemeProvider,
-  PaletteMode,
   IconButton,
   Drawer,
   List,
@@ -22,7 +19,9 @@ import {
   Avatar,
   Divider,
   useMediaQuery,
-  useTheme
+  useTheme,
+  Chip,
+  Tooltip
 } from "@mui/material";
 
 // Icons
@@ -36,6 +35,12 @@ import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import MenuIcon from "@mui/icons-material/Menu";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
+import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
+import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
+import ManageAccountsOutlinedIcon from "@mui/icons-material/ManageAccountsOutlined";
+import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
+import SupervisorAccountOutlinedIcon from "@mui/icons-material/SupervisorAccountOutlined";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 
 import { DashboardPage } from "./pages/DashboardPage";
 import { ProductsPage } from "./pages/ProductsPage";
@@ -44,43 +49,85 @@ import { StockMovementsPage } from "./pages/StockMovementsPage";
 import { CustomersPage } from "./pages/CustomersPage";
 import { WarehousesPage } from "./pages/WarehousesPage";
 import { POSPage } from "./pages/POSPage";
-import { getTheme } from "./theme";
+import { LoginPage } from "./pages/LoginPage";
+import { UsersPage } from "./pages/UsersPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { AppThemeProvider, useThemeMode } from "./theme/ThemeContext";
 import "./styles.css";
+
+import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { PrivateRoute } from "./auth/PrivateRoute";
 
 const queryClient = new QueryClient();
 const SIDEBAR_WIDTH = 260;
 
-function NavigationContent() {
+// ─── Role badge helper ────────────────────────────────────────────────────────
+
+function RoleBadge({ role }: { role: string }) {
+  const config: Record<string, { label: string; color: "error" | "warning" | "info"; icon: React.ReactNode }> = {
+    Admin: { label: "Admin", color: "error", icon: <AdminPanelSettingsOutlinedIcon sx={{ fontSize: 12 }} /> },
+    Manager: { label: "Yönetici", color: "warning", icon: <ManageAccountsOutlinedIcon sx={{ fontSize: 12 }} /> },
+    Staff: { label: "Personel", color: "info", icon: <BadgeOutlinedIcon sx={{ fontSize: 12 }} /> }
+  };
+  const cfg = config[role] ?? config["Staff"];
+
+  return (
+    <Chip
+      label={cfg.label}
+      color={cfg.color}
+      size="small"
+      icon={<>{cfg.icon}</>}
+      sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, "& .MuiChip-icon": { ml: 0.5 } }}
+    />
+  );
+}
+
+// ─── Navigation Content ───────────────────────────────────────────────────────
+
+function NavigationContent({ onClose }: { onClose?: () => void }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
   const menuItems = [
     { to: "/", label: "Genel Bakış", icon: <DashboardOutlinedIcon /> },
     { to: "/products", label: "Ürünler", icon: <Inventory2OutlinedIcon /> },
     { to: "/sales", label: "Satışlar", icon: <MonetizationOnOutlinedIcon /> },
     { to: "/stock", label: "Stok Hareketleri", icon: <SwapHorizOutlinedIcon /> },
     { to: "/customers", label: "Müşteriler", icon: <PeopleOutlinedIcon /> },
-    { to: "/warehouses", label: "Depolar", icon: <BusinessOutlinedIcon /> },
-    { to: "/pos", label: "POS Kasası", icon: <PointOfSaleIcon /> }
+    { to: "/pos", label: "POS Kasası", icon: <PointOfSaleIcon /> },
+    ...(user?.role === "Admin"
+      ? [{ to: "/users", label: "Personel", icon: <SupervisorAccountOutlinedIcon /> }]
+      : []),
+    { to: "/settings", label: "Ayarlar", icon: <SettingsOutlinedIcon /> }
   ];
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Brand header */}
       <Box sx={{ p: 3, display: "flex", alignItems: "center", gap: 1.5 }}>
-        <Avatar 
-          sx={{ 
-            bgcolor: "primary.main", 
-            width: 38, 
+        <Box
+          component="img"
+          src="/logo.png"
+          alt="Nirvana Logo"
+          sx={{
+            width: 38,
             height: 38,
-            boxShadow: "0 4px 12px rgba(99, 102, 241, 0.4)" 
+            objectFit: "contain",
+            borderRadius: 1.5,
+            boxShadow: "0 4px 12px rgba(99, 102, 241, 0.4)"
           }}
-        >
-          <Inventory2OutlinedIcon sx={{ color: "#fff", fontSize: 20 }} />
-        </Avatar>
+        />
         <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>
-          ERP System
+          Nirvana
         </Typography>
       </Box>
-      
+
       <Divider sx={{ opacity: 0.5, my: 1 }} />
 
       {/* Nav List */}
@@ -92,6 +139,7 @@ function NavigationContent() {
               <ListItemButton
                 component={NavLink}
                 to={item.to}
+                onClick={onClose}
                 sx={{
                   borderRadius: 2,
                   py: 1.2,
@@ -116,12 +164,12 @@ function NavigationContent() {
                 }}
               >
                 <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText 
-                  primary={item.label} 
-                  primaryTypographyProps={{ 
-                    fontSize: "0.95rem", 
-                    fontWeight: isActive ? 600 : 500 
-                  }} 
+                <ListItemText
+                  primary={item.label}
+                  primaryTypographyProps={{
+                    fontSize: "0.95rem",
+                    fontWeight: isActive ? 600 : 500
+                  }}
                 />
               </ListItemButton>
             </ListItem>
@@ -131,27 +179,69 @@ function NavigationContent() {
 
       <Divider sx={{ opacity: 0.5, mt: "auto" }} />
 
-      {/* Footer Info */}
-      <Box sx={{ p: 2.5, display: "flex", alignItems: "center", gap: 1.5 }}>
-        <Avatar sx={{ width: 36, height: 36 }} src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" />
-        <Box sx={{ overflow: "hidden" }}>
-          <Typography variant="body2" sx={{ fontWeight: 600, noWrap: true }}>
-            Muhammed Ada
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", noWrap: true }}>
-            Yönetici
-          </Typography>
+      {/* Footer — User Info + Logout */}
+      <Box sx={{ p: 2.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
+          <Avatar
+            sx={{
+              width: 36,
+              height: 36,
+              bgcolor: "primary.main",
+              fontSize: "0.9rem",
+              fontWeight: 700
+            }}
+          >
+            {user?.username?.charAt(0).toUpperCase() ?? "?"}
+          </Avatar>
+          <Box sx={{ overflow: "hidden", flex: 1 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }} noWrap>
+              {user?.username ?? "Kullanıcı"}
+            </Typography>
+            <Box sx={{ mt: 0.5 }}>
+              <RoleBadge role={user?.role ?? "Staff"} />
+            </Box>
+          </Box>
         </Box>
+
+        <Tooltip title="Çıkış yap" placement="top">
+          <Button
+            id="logout-button"
+            onClick={handleLogout}
+            variant="outlined"
+            color="error"
+            size="small"
+            startIcon={<LogoutOutlinedIcon />}
+            fullWidth
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 600,
+              fontSize: "0.8rem",
+              py: 0.8,
+              "&:hover": {
+                bgcolor: "error.main",
+                color: "#fff",
+                borderColor: "error.main"
+              },
+              transition: "all 0.2s ease"
+            }}
+          >
+            Çıkış Yap
+          </Button>
+        </Tooltip>
       </Box>
     </Box>
   );
 }
 
-function MainLayout({ toggleColorMode, mode }: { toggleColorMode: () => void; mode: PaletteMode }) {
+// ─── Main Layout (authenticated) ─────────────────────────────────────────────
+
+function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
+  const { mode, toggleColorMode } = useThemeMode();
 
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -162,7 +252,9 @@ function MainLayout({ toggleColorMode, mode }: { toggleColorMode: () => void; mo
       case "/customers": return "Müşteri Rehberi";
       case "/warehouses": return "Depo Yönetimi";
       case "/pos": return "POS Kasası";
-      default: return "ERP İşlemleri";
+      case "/users": return "Personel Yönetimi";
+      case "/settings": return "Ayarlar";
+      default: return "Nirvana";
     }
   };
 
@@ -179,18 +271,18 @@ function MainLayout({ toggleColorMode, mode }: { toggleColorMode: () => void; mo
             "& .MuiDrawer-paper": { boxSizing: "border-box", width: SIDEBAR_WIDTH, bgcolor: "background.paper" }
           }}
         >
-          <NavigationContent />
+          <NavigationContent onClose={() => setMobileOpen(false)} />
         </Drawer>
       ) : (
         /* Sidebar for Desktop */
-        <Box 
-          component="nav" 
-          sx={{ 
-            width: SIDEBAR_WIDTH, 
-            flexShrink: 0, 
-            borderRight: 1, 
+        <Box
+          component="nav"
+          sx={{
+            width: SIDEBAR_WIDTH,
+            flexShrink: 0,
+            borderRight: 1,
             borderColor: "divider",
-            bgcolor: "background.paper" 
+            bgcolor: "background.paper"
           }}
         >
           <NavigationContent />
@@ -214,7 +306,6 @@ function MainLayout({ toggleColorMode, mode }: { toggleColorMode: () => void; mo
             </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              {/* Theme Toggle Button */}
               <IconButton onClick={toggleColorMode} color="inherit">
                 {mode === "dark" ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />}
               </IconButton>
@@ -223,50 +314,44 @@ function MainLayout({ toggleColorMode, mode }: { toggleColorMode: () => void; mo
         </AppBar>
 
         {/* Dynamic Route Content */}
-        <Container maxWidth="xl" className="animate-fade-in" sx={{ py: 4, flexGrow: 1, display: "flex", flexDirection: "column" }}>
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/sales" element={<SalesPage />} />
-            <Route path="/stock" element={<StockMovementsPage />} />
-            <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/warehouses" element={<WarehousesPage />} />
-            <Route path="/pos" element={<POSPage />} />
-          </Routes>
-        </Container>
+        <Box className="animate-fade-in" sx={{ py: 4, flexGrow: 1, display: "flex", flexDirection: "column", px: { xs: 2, sm: 3, xl: 4 } }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );
 }
 
+// ─── App Root ─────────────────────────────────────────────────────────────────
+
 function App() {
-  const [mode, setMode] = useState<PaletteMode>(() => {
-    const saved = localStorage.getItem("theme_mode");
-    return (saved as PaletteMode) || "dark";
-  });
-
-  useEffect(() => {
-    localStorage.setItem("theme_mode", mode);
-    if (mode === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [mode]);
-
-  const toggleColorMode = () => {
-    setMode((prevMode) => (prevMode === "light" ? "dark" : "light"));
-  };
-
-  const theme = React.useMemo(() => getTheme(mode), [mode]);
-
   return (
-    <ThemeProvider theme={theme}>
+    <AppThemeProvider>
       <CssBaseline />
       <BrowserRouter>
-        <MainLayout toggleColorMode={toggleColorMode} mode={mode} />
+        <AuthProvider>
+          <Routes>
+            {/* Public route — herkese açık */}
+            <Route path="/login" element={<LoginPage />} />
+
+            {/* Protected routes — JWT zorunlu */}
+            <Route element={<PrivateRoute />}>
+              <Route element={<MainLayout />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="products" element={<ProductsPage />} />
+                <Route path="sales" element={<SalesPage />} />
+                <Route path="stock" element={<StockMovementsPage />} />
+                <Route path="customers" element={<CustomersPage />} />
+                <Route path="warehouses" element={<WarehousesPage />} />
+                <Route path="pos" element={<POSPage />} />
+                <Route path="users" element={<UsersPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
+            </Route>
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
-    </ThemeProvider>
+    </AppThemeProvider>
   );
 }
 

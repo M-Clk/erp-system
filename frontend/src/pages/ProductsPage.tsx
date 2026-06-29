@@ -19,8 +19,11 @@ import EditIcon from "@mui/icons-material/Edit";
 import { DataTable } from "../components/DataTable";
 import { apiClient } from "../api/apiClient";
 import { ProductDto, ReferenceDataDto } from "../api/types";
+import { useAuth } from "../auth/AuthContext";
 
 export function ProductsPage() {
+  const { user } = useAuth();
+  const canManage = user?.role === "Admin" || user?.role === "Manager";
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -165,20 +168,22 @@ export function ProductsPage() {
             Stok kalemlerinizi ve fiyatlarınızı yönetin
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          color={isFormOpen ? "secondary" : "primary"}
-          startIcon={isFormOpen ? <CloseIcon /> : <AddIcon />}
-          onClick={() => {
-            if (isFormOpen) {
-              resetForm();
-            } else {
-              setIsFormOpen(true);
-            }
-          }}
-        >
-          {isFormOpen ? "Vazgeç" : "Ürün Ekle"}
-        </Button>
+        {canManage && (
+          <Button
+            variant="contained"
+            color={isFormOpen ? "secondary" : "primary"}
+            startIcon={isFormOpen ? <CloseIcon /> : <AddIcon />}
+            onClick={() => {
+              if (isFormOpen) {
+                resetForm();
+              } else {
+                setIsFormOpen(true);
+              }
+            }}
+          >
+            {isFormOpen ? "Vazgeç" : "Ürün Ekle"}
+          </Button>
+        )}
       </Box>
 
       {/* Expandable Form Panel */}
@@ -329,28 +334,34 @@ export function ProductsPage() {
 
       {/* Data Table */}
       <DataTable
-        columns={["Kod", "Barkod", "Ürün Adı", "Marka", "Kategori", "Birim", "Satış Fiyatı", "Durum", "İşlemler"]}
-        rows={(products.data ?? []).map((p) => [
-          <Typography variant="body2" fontWeight={700} color="primary.main">{p.code}</Typography>,
-          p.barcode || <span style={{ opacity: 0.5 }}>-</span>,
-          p.name,
-          p.brandName,
-          p.categoryName,
-          p.unitName,
-          <Typography variant="body2" fontWeight={600}>₺{p.salePrice.toFixed(2)}</Typography>,
-          <Chip 
-            label={p.isActive ? "Aktif" : "Pasif"} 
-            color={p.isActive ? "success" : "default"} 
-            size="small" 
-            variant="outlined" 
-            sx={{ fontWeight: 600 }}
-          />,
-          <IconButton color="primary" onClick={() => startEdit(p)} size="small" title="Düzenle">
-            <EditIcon fontSize="small" />
-          </IconButton>
-        ])}
+        columns={canManage ? ["Kod", "Barkod", "Ürün Adı", "Marka", "Kategori", "Birim", "Satış Fiyatı", "Durum", "İşlemler"] : ["Kod", "Barkod", "Ürün Adı", "Marka", "Kategori", "Birim", "Satış Fiyatı", "Durum"]}
+        rows={(products.data ?? []).map((p) => {
+          const row = [
+            <Typography variant="body2" fontWeight={700} color="primary.main">{p.code}</Typography>,
+            p.barcode || <span style={{ opacity: 0.5 }}>-</span>,
+            p.name,
+            p.brandName,
+            p.categoryName,
+            p.unitName,
+            <Typography variant="body2" fontWeight={600}>₺{p.salePrice.toFixed(2)}</Typography>,
+            <Chip 
+              label={p.isActive ? "Aktif" : "Pasif"} 
+              color={p.isActive ? "success" : "default"} 
+              size="small" 
+              variant="outlined" 
+              sx={{ fontWeight: 600 }}
+            />
+          ];
+          if (canManage) {
+            row.push(
+              <IconButton color="primary" onClick={() => startEdit(p)} size="small" title="Düzenle">
+                <EditIcon fontSize="small" />
+              </IconButton>
+            );
+          }
+          return row;
+        })}
       />
     </Stack>
   );
 }
-

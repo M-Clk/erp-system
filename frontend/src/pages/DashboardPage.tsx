@@ -68,7 +68,7 @@ export function DashboardPage() {
           Hoş Geldiniz, Muhammed!
         </Typography>
         <Typography color="text.secondary" variant="body1">
-          ERP sisteminizin bugünkü durumuna genel bakış.
+          Nirvana platformunun bugünkü durumuna genel bakış.
         </Typography>
       </Box>
 

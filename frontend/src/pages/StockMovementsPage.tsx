@@ -17,6 +17,7 @@ import {
   ReferenceDataDto, AddStockMovementRequest
 } from "../api/types";
 import { DataTable } from "../components/DataTable";
+import { useAuth } from "../auth/AuthContext";
 
 const fmt = (amount: number) =>
   new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(amount);
@@ -30,6 +31,8 @@ const MANUAL_MOVEMENT_TYPES = [
 ];
 
 export function StockMovementsPage() {
+  const { user } = useAuth();
+  const canManage = user?.role === "Admin" || user?.role === "Manager";
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [barcodeSearch, setBarcodeSearch] = useState("");
@@ -236,14 +239,16 @@ export function StockMovementsPage() {
               Depolarınızdaki anlık stok miktarları
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={isFormOpen ? <CloseIcon /> : <AddIcon />}
-            onClick={() => setIsFormOpen(o => !o)}
-          >
-            {isFormOpen ? "Vazgeç" : "Stok Hareketi Ekle"}
-          </Button>
+          {canManage && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={isFormOpen ? <CloseIcon /> : <AddIcon />}
+              onClick={() => setIsFormOpen(o => !o)}
+            >
+              {isFormOpen ? "Vazgeç" : "Stok Hareketi Ekle"}
+            </Button>
+          )}
         </Box>
 
         {/* Stock Entry Form */}
@@ -463,10 +468,10 @@ export function StockMovementsPage() {
           Tüm stok işlemlerinin geçmiş kaydı
         </Typography>
         <DataTable
-          columns={["Ürün Kodu", "Ürün Adı", "Depo", "Hareket Tipi", "Miktar", "Birim Fiyat", "Referans", "Tarih", "İşlemler"]}
+          columns={canManage ? ["Ürün Kodu", "Ürün Adı", "Depo", "Hareket Tipi", "Miktar", "Birim Fiyat", "Referans", "Tarih", "İşlemler"] : ["Ürün Kodu", "Ürün Adı", "Depo", "Hareket Tipi", "Miktar", "Birim Fiyat", "Referans", "Tarih"]}
           rows={(movements.data ?? []).map(m => {
             const isManual = m.referenceType === "MANUAL";
-            return [
+            const row = [
               renderCell(<Typography variant="body2" fontWeight={700} color="primary.main">{m.productCode}</Typography>, m.isCancelled, true),
               renderCell(m.productName, m.isCancelled),
               renderCell(m.warehouseName, m.isCancelled),
@@ -484,19 +489,24 @@ export function StockMovementsPage() {
               ) : (
                 <span style={{ opacity: 0.5 }}>—</span>
               ),
-              renderCell(new Date(m.createdAt).toLocaleString("tr-TR"), m.isCancelled),
-              !m.isCancelled && isManual ? (
-                <Button
-                  size="small"
-                  color="error"
-                  variant="outlined"
-                  onClick={() => setCancelTargetId(m.id)}
-                  disabled={cancelMovement.isPending}
-                >
-                  İptal Et
-                </Button>
-              ) : ("")
+              renderCell(new Date(m.createdAt).toLocaleString("tr-TR"), m.isCancelled)
             ];
+            if (canManage) {
+              row.push(
+                !m.isCancelled && isManual ? (
+                  <Button
+                    size="small"
+                    color="error"
+                    variant="outlined"
+                    onClick={() => setCancelTargetId(m.id)}
+                    disabled={cancelMovement.isPending}
+                  >
+                    İptal Et
+                  </Button>
+                ) : ("")
+              );
+            }
+            return row;
           })}
         />
       </Box>

@@ -1,4 +1,4 @@
-# ERP System MVP
+# Nirvana - Modern ERP Platformu
 
 Basit, genisletilebilir ERP sistemi.
 

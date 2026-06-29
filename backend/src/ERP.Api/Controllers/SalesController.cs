@@ -1,11 +1,13 @@
 using ERP.Application.Dto;
 using ERP.Application.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ERP.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class SalesController(ISaleService sales) : ControllerBase
 {
     [HttpPost]
