@@ -42,6 +42,7 @@ import type {
   PosCheckoutResult,
   PosCheckoutRequest,
 } from "../api/types";
+import { useCart } from "../context/CartContext";
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
 
@@ -72,9 +73,17 @@ const fmt = (amount: number) =>
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function POSPage() {
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const {
+    cart,
+    selectedTerminalId,
+    setSelectedTerminalId,
+    addToCart,
+    updateQty,
+    removeItem,
+    clearCart,
+  } = useCart();
+
   const [barcodeInput, setBarcodeInput] = useState("");
-  const [selectedTerminalId, setSelectedTerminalId] = useState<string>("");
   const [isScanning, setIsScanning] = useState(false);
   const [snack, setSnack] = useState<{ open: boolean; message: string; severity: "success" | "error" | "warning" }>({
     open: false,
@@ -94,7 +103,7 @@ export function POSPage() {
     if (terminals.length > 0 && !selectedTerminalId) {
       setSelectedTerminalId(terminals[0].id);
     }
-  }, [terminals, selectedTerminalId]);
+  }, [terminals, selectedTerminalId, setSelectedTerminalId]);
 
   // Auto-focus barcode input
   useEffect(() => {
@@ -130,7 +139,7 @@ export function POSPage() {
     mutationFn: checkout,
     onSuccess: (result) => {
       setLastSale(result);
-      setCart([]);
+      clearCart();
       setBarcodeInput("");
       showSnack(`✓ Satış tamamlandı! Fiş No: ${result.saleNo}`, "success");
       setTimeout(() => barcodeRef.current?.focus(), 100);
@@ -142,30 +151,6 @@ export function POSPage() {
       showSnack(msg, "error");
     },
   });
-
-  const addToCart = useCallback((product: PosProductDto) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.productId === product.id);
-      if (existing) {
-        return prev.map((i) =>
-          i.productId === product.id
-            ? { ...i, quantity: i.quantity + 1, lineTotal: (i.quantity + 1) * i.unitPrice }
-            : i
-        );
-      }
-      return [
-        ...prev,
-        {
-          productId: product.id,
-          barcode: product.barcode,
-          name: product.name,
-          quantity: 1,
-          unitPrice: product.salePrice,
-          lineTotal: product.salePrice,
-        },
-      ];
-    });
-  }, []);
 
   const handleBarcodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,25 +172,8 @@ export function POSPage() {
     barcodeRef.current?.focus();
   };
 
-  const updateQty = (productId: string, delta: number) => {
-    setCart((prev) => {
-      return prev
-        .map((item) => {
-          if (item.productId !== productId) return item;
-          const newQty = item.quantity + delta;
-          if (newQty <= 0) return null;
-          return { ...item, quantity: newQty, lineTotal: newQty * item.unitPrice };
-        })
-        .filter(Boolean) as CartItem[];
-    });
-  };
-
-  const removeItem = (productId: string) => {
-    setCart((prev) => prev.filter((i) => i.productId !== productId));
-  };
-
   const handleCancelSale = () => {
-    setCart([]);
+    clearCart();
     setBarcodeInput("");
     setLastSale(null);
     barcodeRef.current?.focus();

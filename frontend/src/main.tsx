@@ -56,6 +56,7 @@ import { AppThemeProvider, useThemeMode } from "./theme/ThemeContext";
 import "./styles.css";
 
 import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { CartProvider } from "./context/CartContext";
 import { PrivateRoute } from "./auth/PrivateRoute";
 
 const queryClient = new QueryClient();
@@ -330,25 +331,27 @@ function App() {
       <CssBaseline />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            {/* Public route — herkese açık */}
-            <Route path="/login" element={<LoginPage />} />
+          <CartProvider>
+            <Routes>
+              {/* Public route — herkese açık */}
+              <Route path="/login" element={<LoginPage />} />
 
-            {/* Protected routes — JWT zorunlu */}
-            <Route element={<PrivateRoute />}>
-              <Route element={<MainLayout />}>
-                <Route index element={<DashboardPage />} />
-                <Route path="products" element={<ProductsPage />} />
-                <Route path="sales" element={<SalesPage />} />
-                <Route path="stock" element={<StockMovementsPage />} />
-                <Route path="customers" element={<CustomersPage />} />
-                <Route path="warehouses" element={<WarehousesPage />} />
-                <Route path="pos" element={<POSPage />} />
-                <Route path="users" element={<UsersPage />} />
-                <Route path="settings" element={<SettingsPage />} />
+              {/* Protected routes — JWT zorunlu */}
+              <Route element={<PrivateRoute />}>
+                <Route element={<MainLayout />}>
+                  <Route index element={<DashboardPage />} />
+                  <Route path="products" element={<ProductsPage />} />
+                  <Route path="sales" element={<SalesPage />} />
+                  <Route path="stock" element={<StockMovementsPage />} />
+                  <Route path="customers" element={<CustomersPage />} />
+                  <Route path="warehouses" element={<WarehousesPage />} />
+                  <Route path="pos" element={<POSPage />} />
+                  <Route path="users" element={<UsersPage />} />
+                  <Route path="settings" element={<SettingsPage />} />
+                </Route>
               </Route>
-            </Route>
-          </Routes>
+            </Routes>
+          </CartProvider>
         </AuthProvider>
       </BrowserRouter>
     </AppThemeProvider>
