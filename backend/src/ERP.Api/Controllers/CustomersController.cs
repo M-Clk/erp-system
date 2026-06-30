@@ -22,7 +22,6 @@ public class CustomersController(ICustomerService customers) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<CustomerDto>> Create(CreateCustomerRequest request, CancellationToken cancellationToken)
     {
         var customer = await customers.CreateAsync(request, cancellationToken);
@@ -30,12 +29,10 @@ public class CustomersController(ICustomerService customers) : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> Update(Guid id, UpdateCustomerRequest request, CancellationToken cancellationToken)
         => await customers.UpdateAsync(id, request, cancellationToken) ? NoContent() : NotFound();
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         try

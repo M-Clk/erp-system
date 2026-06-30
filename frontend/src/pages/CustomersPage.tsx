@@ -186,7 +186,7 @@ function CustomerTable({ customers, onEdit, onDelete, canManage = true }: Custom
 
 export function CustomersPage() {
   const { user } = useAuth();
-  const canManage = user?.role === "Admin" || user?.role === "Manager";
+  const canManage = true; // Tüm giriş yapmış kullanıcılar müşteri yönetebilir
   const queryClient = useQueryClient();
 
   // Yeni müşteri formu
