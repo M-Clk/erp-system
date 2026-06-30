@@ -1,4 +1,4 @@
-import { FormEvent, useState, useRef, useEffect } from "react";
+import { FormEvent, useState, useRef, useEffect, useMemo, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Stack, Typography, Grid, Box, Chip, Paper,
@@ -11,6 +11,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
 import ClearIcon from "@mui/icons-material/Clear";
+import SearchIcon from "@mui/icons-material/Search";
 import { apiClient } from "../api/apiClient";
 import {
   CurrentStockDto, StockMovementDto, ProductDto,
@@ -30,6 +31,16 @@ const MANUAL_MOVEMENT_TYPES = [
   { value: 6, label: "Transfer Giriş" },
 ];
 
+const ALL_MOVEMENT_TYPES = [
+  { value: 1, label: "Satın Alma" },
+  { value: 2, label: "Satış" },
+  { value: 3, label: "İade Giriş" },
+  { value: 4, label: "İade Çıkış" },
+  { value: 5, label: "Stok Sayımı" },
+  { value: 6, label: "Transfer Giriş" },
+  { value: 7, label: "Transfer Çıkış" },
+];
+
 export function StockMovementsPage() {
   const { user } = useAuth();
   const canManage = user?.role === "Admin" || user?.role === "Manager";
@@ -40,6 +51,16 @@ export function StockMovementsPage() {
     open: false, message: "", severity: "success"
   });
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+
+  // Current Stock filter states
+  const [currentSearch, setCurrentSearch] = useState("");
+  const [currentWarehouse, setCurrentWarehouse] = useState("");
+
+  // Movement Ledger filter states
+  const [movementSearch, setMovementSearch] = useState("");
+  const [movementWarehouse, setMovementWarehouse] = useState("");
+  const [movementType, setMovementType] = useState("all");
+  const [movementStatus, setMovementStatus] = useState("all");
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,6 +122,7 @@ export function StockMovementsPage() {
       setSnack({ open: true, message: msg, severity: "error" });
     }
   });
+
   const cancelMovement = useMutation({
     mutationFn: async (id: string) => apiClient.post(`/stock/movements/${id}/cancel`),
     onSuccess: () => {
@@ -115,6 +137,7 @@ export function StockMovementsPage() {
       setSnack({ open: true, message: msg, severity: "error" });
     }
   });
+
   function submit(e: FormEvent) {
     e.preventDefault();
     addMovement.mutate();
@@ -227,6 +250,58 @@ export function StockMovementsPage() {
   };
 
   const selectedProduct = products.data?.find(p => p.id === form.productId);
+
+  // Filter logıcs
+  const filteredCurrent = useMemo(() => {
+    const list = current.data ?? [];
+    const term = currentSearch.trim().toLowerCase();
+
+    return list.filter((s) => {
+      const matchesSearch = 
+        !term || 
+        s.productCode.toLowerCase().includes(term) || 
+        s.productName.toLowerCase().includes(term);
+
+      const matchesWarehouse = !currentWarehouse || s.warehouseName === currentWarehouse;
+
+      return matchesSearch && matchesWarehouse;
+    });
+  }, [current.data, currentSearch, currentWarehouse]);
+
+  const filteredMovements = useMemo(() => {
+    const list = movements.data ?? [];
+    const term = movementSearch.trim().toLowerCase();
+
+    return list.filter((m) => {
+      const matchesSearch = 
+        !term || 
+        m.productCode.toLowerCase().includes(term) || 
+        m.productName.toLowerCase().includes(term);
+
+      const matchesWarehouse = !movementWarehouse || m.warehouseName === movementWarehouse;
+
+      const matchesType = movementType === "all" || m.type === Number(movementType);
+
+      const matchesStatus = 
+        movementStatus === "all" ||
+        (movementStatus === "cancelled" && m.isCancelled) ||
+        (movementStatus === "normal" && !m.isCancelled);
+
+      return matchesSearch && matchesWarehouse && matchesType && matchesStatus;
+    });
+  }, [movements.data, movementSearch, movementWarehouse, movementType, movementStatus]);
+
+  const handleClearCurrentFilters = () => {
+    setCurrentSearch("");
+    setCurrentWarehouse("");
+  };
+
+  const handleClearMovementFilters = () => {
+    setMovementSearch("");
+    setMovementWarehouse("");
+    setMovementType("all");
+    setMovementStatus("all");
+  };
 
   return (
     <Stack spacing={4}>
@@ -442,9 +517,66 @@ export function StockMovementsPage() {
           </Paper>
         </Collapse>
 
+        {/* Current Stock Filters */}
+        <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6} md={5}>
+              <TextField
+                placeholder="Ürün adı veya kodu ara…"
+                value={currentSearch}
+                onChange={e => setCurrentSearch(e.target.value)}
+                size="small"
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" sx={{ color: "text.disabled" }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: currentSearch ? (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setCurrentSearch("")}>
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <TextField
+                select
+                label="Depo"
+                value={currentWarehouse}
+                onChange={e => setCurrentWarehouse(e.target.value)}
+                size="small"
+                fullWidth
+              >
+                <MenuItem value=""><em>Tüm Depolar</em></MenuItem>
+                {(references.data?.warehouses ?? []).map(w => (
+                  <MenuItem key={w.id} value={w.name}>{w.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={12} md={3} sx={{ display: "flex", justifyContent: "flex-end" }}>
+              {(currentSearch || currentWarehouse) && (
+                <Button 
+                  variant="text" 
+                  size="small" 
+                  startIcon={<ClearIcon />} 
+                  onClick={handleClearCurrentFilters}
+                  sx={{ textTransform: "none" }}
+                >
+                  Filtreleri Temizle
+                </Button>
+              )}
+            </Grid>
+          </Grid>
+        </Paper>
+
         <DataTable
           columns={["Ürün Kodu", "Ürün Adı", "Depo Adı", "Mevcut Miktar"]}
-          rows={(current.data ?? []).map(s => [
+          rows={filteredCurrent.map(s => [
             <Typography variant="body2" fontWeight={700} color="primary.main">{s.productCode}</Typography>,
             s.productName,
             s.warehouseName,
@@ -467,9 +599,96 @@ export function StockMovementsPage() {
         <Typography color="text.secondary" variant="body2" sx={{ mb: 2.5 }}>
           Tüm stok işlemlerinin geçmiş kaydı
         </Typography>
+
+        {/* Ledger Filters */}
+        <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6} md={3.5}>
+              <TextField
+                placeholder="Ürün adı veya kodu ara…"
+                value={movementSearch}
+                onChange={e => setMovementSearch(e.target.value)}
+                size="small"
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" sx={{ color: "text.disabled" }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: movementSearch ? (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setMovementSearch("")}>
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.5}>
+              <TextField
+                select
+                label="Depo"
+                value={movementWarehouse}
+                onChange={e => setMovementWarehouse(e.target.value)}
+                size="small"
+                fullWidth
+              >
+                <MenuItem value=""><em>Tüm Depolar</em></MenuItem>
+                {(references.data?.warehouses ?? []).map(w => (
+                  <MenuItem key={w.id} value={w.name}>{w.name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.5}>
+              <TextField
+                select
+                label="Hareket Tipi"
+                value={movementType}
+                onChange={e => setMovementType(e.target.value)}
+                size="small"
+                fullWidth
+              >
+                <MenuItem value="all">Tümü (Tip)</MenuItem>
+                {ALL_MOVEMENT_TYPES.map(t => (
+                  <MenuItem key={t.value} value={String(t.value)}>{t.label}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <TextField
+                select
+                label="Durum"
+                value={movementStatus}
+                onChange={e => setMovementStatus(e.target.value)}
+                size="small"
+                fullWidth
+              >
+                <MenuItem value="all">Tümü (Durum)</MenuItem>
+                <MenuItem value="normal">Normal</MenuItem>
+                <MenuItem value="cancelled">İptal Edilmiş</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={12} md={1.5} sx={{ display: "flex", justifyContent: "flex-end" }}>
+              {(movementSearch || movementWarehouse || movementType !== "all" || movementStatus !== "all") && (
+                <Button 
+                  variant="text" 
+                  size="small" 
+                  startIcon={<ClearIcon />} 
+                  onClick={handleClearMovementFilters}
+                  sx={{ textTransform: "none" }}
+                >
+                  Temizle
+                </Button>
+              )}
+            </Grid>
+          </Grid>
+        </Paper>
+
         <DataTable
           columns={canManage ? ["Ürün Kodu", "Ürün Adı", "Depo", "Hareket Tipi", "Miktar", "Birim Fiyat", "Referans", "Tarih", "İşlemler"] : ["Ürün Kodu", "Ürün Adı", "Depo", "Hareket Tipi", "Miktar", "Birim Fiyat", "Referans", "Tarih"]}
-          rows={(movements.data ?? []).map(m => {
+          rows={filteredMovements.map(m => {
             const isManual = m.referenceType === "MANUAL";
             const row = [
               renderCell(<Typography variant="body2" fontWeight={700} color="primary.main">{m.productCode}</Typography>, m.isCancelled, true),

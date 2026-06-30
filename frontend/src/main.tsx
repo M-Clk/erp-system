@@ -96,6 +96,7 @@ function NavigationContent({ onClose }: { onClose?: () => void }) {
     { to: "/sales", label: "Satışlar", icon: <MonetizationOnOutlinedIcon /> },
     { to: "/stock", label: "Stok Hareketleri", icon: <SwapHorizOutlinedIcon /> },
     { to: "/customers", label: "Müşteriler", icon: <PeopleOutlinedIcon /> },
+    { to: "/warehouses", label: "Depolar", icon: <BusinessOutlinedIcon /> },
     { to: "/pos", label: "POS Kasası", icon: <PointOfSaleIcon /> },
     ...(user?.role === "Admin"
       ? [{ to: "/users", label: "Personel", icon: <SupervisorAccountOutlinedIcon /> }]

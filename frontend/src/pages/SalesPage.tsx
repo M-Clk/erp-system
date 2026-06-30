@@ -1,4 +1,4 @@
-import { FormEvent, useState, useEffect } from "react";
+import { FormEvent, useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   Button, 
@@ -11,10 +11,13 @@ import {
   Box,
   Collapse,
   IconButton,
-  Chip
+  Chip,
+  InputAdornment
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
+import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 import { apiClient } from "../api/apiClient";
 import { ProductDto, ReferenceDataDto, SaleDto, CustomerDto } from "../api/types";
 import { DataTable } from "../components/DataTable";
@@ -32,6 +35,12 @@ export function SalesPage() {
   const [quantity, setQuantity] = useState(1);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [unitPrice, setUnitPrice] = useState<number | "">("");
+
+  // Search & Filter states
+  const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState("all"); // "all", "today", "week", "month"
+  const [minAmount, setMinAmount] = useState<number | "">("");
+  const [maxAmount, setMaxAmount] = useState<number | "">("");
 
   const products = useQuery({
     queryKey: ["products"],
@@ -106,6 +115,50 @@ export function SalesPage() {
   const currentPrice = unitPrice !== "" ? Number(unitPrice) : (selectedProd?.salePrice ?? 0);
   const subtotal = currentPrice * quantity;
   const netTotal = Math.max(0, subtotal - discountAmount);
+
+  // Client-side search and filters logic
+  const filteredSales = useMemo(() => {
+    const list = sales.data ?? [];
+    const term = search.trim().toLowerCase();
+    const now = new Date();
+
+    return list.filter((s) => {
+      // 1. Search term filter (order no or customer name)
+      const matchesSearch = 
+        !term ||
+        s.saleNo.toLowerCase().includes(term) ||
+        (s.customerName ?? "misafir müşteri").toLowerCase().includes(term);
+
+      // 2. Date range filter
+      let matchesDate = true;
+      if (dateFilter !== "all") {
+        const saleDate = new Date(s.createdAt);
+        const diffTime = Math.abs(now.getTime() - saleDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (dateFilter === "today") {
+          matchesDate = saleDate.toDateString() === now.toDateString();
+        } else if (dateFilter === "week") {
+          matchesDate = diffDays <= 7;
+        } else if (dateFilter === "month") {
+          matchesDate = diffDays <= 30;
+        }
+      }
+
+      // 3. Amount range filter
+      const matchesMin = minAmount === "" || s.netAmount >= minAmount;
+      const matchesMax = maxAmount === "" || s.netAmount <= maxAmount;
+
+      return matchesSearch && matchesDate && matchesMin && matchesMax;
+    });
+  }, [sales.data, search, dateFilter, minAmount, maxAmount]);
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setDateFilter("all");
+    setMinAmount("");
+    setMaxAmount("");
+  };
 
   return (
     <Stack spacing={3}>
@@ -256,10 +309,87 @@ export function SalesPage() {
         </Paper>
       </Collapse>
 
+      {/* Filter Toolbar */}
+      <Paper sx={{ p: 2, borderRadius: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={3.5}>
+            <TextField
+              placeholder="Sipariş no veya müşteri ara…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              size="small"
+              fullWidth
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" sx={{ color: "text.disabled" }} />
+                  </InputAdornment>
+                ),
+                endAdornment: search ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearch("")}>
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={2.5}>
+            <TextField
+              select
+              label="Tarih"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              size="small"
+              fullWidth
+            >
+              <MenuItem value="all">Tüm Tarihler</MenuItem>
+              <MenuItem value="today">Bugün</MenuItem>
+              <MenuItem value="week">Son 7 Gün</MenuItem>
+              <MenuItem value="month">Son 30 Gün</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2.25}>
+            <TextField
+              label="Min. Tutar (₺)"
+              type="number"
+              value={minAmount}
+              onChange={(e) => setMinAmount(e.target.value === "" ? "" : Number(e.target.value))}
+              size="small"
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={2.25}>
+            <TextField
+              label="Max. Tutar (₺)"
+              type="number"
+              value={maxAmount}
+              onChange={(e) => setMaxAmount(e.target.value === "" ? "" : Number(e.target.value))}
+              size="small"
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={12} sm={12} md={1.5} sx={{ display: "flex", justifyContent: "flex-end" }}>
+            {(search || dateFilter !== "all" || minAmount !== "" || maxAmount !== "") && (
+              <Button 
+                variant="text" 
+                size="small" 
+                startIcon={<ClearIcon />} 
+                onClick={handleClearFilters}
+                sx={{ textTransform: "none" }}
+              >
+                Temizle
+              </Button>
+            )}
+          </Grid>
+        </Grid>
+      </Paper>
+
       {/* Data Table */}
       <DataTable
         columns={["Sipariş No", "Müşteri", "Toplam Tutar", "İndirim", "Net Tutar", "Tarih"]}
-        rows={(sales.data ?? []).map((s) => [
+        rows={filteredSales.map((s) => [
           <Typography variant="body2" fontWeight={700} color="primary.main">{s.saleNo}</Typography>,
           s.customerName ?? <span style={{ opacity: 0.6 }}>Misafir Müşteri</span>,
           fmt(s.totalAmount),

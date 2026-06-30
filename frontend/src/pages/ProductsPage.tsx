@@ -1,4 +1,4 @@
-import { FormEvent, useState, useEffect, useRef } from "react";
+import { FormEvent, useState, useEffect, useRef, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   Button, 
@@ -11,11 +11,22 @@ import {
   Box,
   Collapse,
   Chip,
-  IconButton
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
+  Alert,
+  InputAdornment,
+  Tooltip
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 import { DataTable } from "../components/DataTable";
 import { apiClient } from "../api/apiClient";
 import { ProductDto, ReferenceDataDto } from "../api/types";
@@ -28,6 +39,22 @@ export function ProductsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+
+  // Search and filter states
+  const [search, setSearch] = useState("");
+  const [filterBrand, setFilterBrand] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<ProductDto | null>(null);
+
+  // Toast notification
+  const [snack, setSnack] = useState<{ open: boolean; message: string; severity: "success" | "error" | "warning" }>({
+    open: false,
+    message: "",
+    severity: "success"
+  });
 
   // Keyboard shortcut for F2
   useEffect(() => {
@@ -115,6 +142,11 @@ export function ProductsPage() {
     onSuccess: () => {
       resetForm();
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      setSnack({ open: true, message: "Ürün başarıyla oluşturuldu.", severity: "success" });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error || "Ürün eklenirken hata oluştu.";
+      setSnack({ open: true, message: msg, severity: "error" });
     }
   });
 
@@ -125,6 +157,26 @@ export function ProductsPage() {
     onSuccess: () => {
       resetForm();
       queryClient.invalidateQueries({ queryKey: ["products"] });
+      setSnack({ open: true, message: "Ürün başarıyla güncellendi.", severity: "success" });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error || "Ürün güncellenirken hata oluştu.";
+      setSnack({ open: true, message: msg, severity: "error" });
+    }
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      return apiClient.delete(`/products/${id}`);
+    },
+    onSuccess: () => {
+      setDeleteTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setSnack({ open: true, message: "Ürün başarıyla silindi.", severity: "success" });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error || "Ürün silinirken bir hata oluştu. Ürüne bağlı stok hareketleri olabilir.";
+      setSnack({ open: true, message: msg, severity: "error" });
     }
   });
 
@@ -155,6 +207,42 @@ export function ProductsPage() {
   }
 
   const isPending = create.isPending || update.isPending;
+
+  // Client-side search and filters logic
+  const filteredProducts = useMemo(() => {
+    const list = products.data ?? [];
+    const term = search.trim().toLowerCase();
+
+    return list.filter((p) => {
+      // Search term filter
+      const matchesSearch = 
+        !term ||
+        p.code.toLowerCase().includes(term) ||
+        p.name.toLowerCase().includes(term) ||
+        (p.barcode ?? "").toLowerCase().includes(term);
+
+      // Brand filter
+      const matchesBrand = !filterBrand || p.brandId === filterBrand;
+
+      // Category filter
+      const matchesCategory = !filterCategory || p.categoryId === filterCategory;
+
+      // Status filter
+      const matchesStatus = 
+        filterStatus === "all" ||
+        (filterStatus === "active" && p.isActive) ||
+        (filterStatus === "passive" && !p.isActive);
+
+      return matchesSearch && matchesBrand && matchesCategory && matchesStatus;
+    });
+  }, [products.data, search, filterBrand, filterCategory, filterStatus]);
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setFilterBrand("");
+    setFilterCategory("");
+    setFilterStatus("all");
+  };
 
   return (
     <Stack spacing={3}>
@@ -332,10 +420,96 @@ export function ProductsPage() {
         </Paper>
       </Collapse>
 
+      {/* Filter Toolbar */}
+      <Paper sx={{ p: 2, borderRadius: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              placeholder="Kod, ad veya barkod ile ara…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              size="small"
+              fullWidth
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" sx={{ color: "text.disabled" }} />
+                  </InputAdornment>
+                ),
+                endAdornment: search ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearch("")}>
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={2.5}>
+            <TextField
+              select
+              label="Marka"
+              value={filterBrand}
+              onChange={(e) => setFilterBrand(e.target.value)}
+              size="small"
+              fullWidth
+            >
+              <MenuItem value=""><em>Tümü</em></MenuItem>
+              {(references.data?.brands ?? []).map((b) => (
+                <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2.5}>
+            <TextField
+              select
+              label="Kategori"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              size="small"
+              fullWidth
+            >
+              <MenuItem value=""><em>Tümü</em></MenuItem>
+              {(references.data?.categories ?? []).map((c) => (
+                <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2.5}>
+            <TextField
+              select
+              label="Durum"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              size="small"
+              fullWidth
+            >
+              <MenuItem value="all">Tümü (Durum)</MenuItem>
+              <MenuItem value="active">Aktif</MenuItem>
+              <MenuItem value="passive">Pasif</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={12} md={1.5} sx={{ display: "flex", justifyContent: "flex-end" }}>
+            {(search || filterBrand || filterCategory || filterStatus !== "all") && (
+              <Button 
+                variant="text" 
+                size="small" 
+                startIcon={<ClearIcon />} 
+                onClick={handleClearFilters}
+                sx={{ textTransform: "none" }}
+              >
+                Temizle
+              </Button>
+            )}
+          </Grid>
+        </Grid>
+      </Paper>
+
       {/* Data Table */}
       <DataTable
         columns={canManage ? ["Kod", "Barkod", "Ürün Adı", "Marka", "Kategori", "Birim", "Satış Fiyatı", "Durum", "İşlemler"] : ["Kod", "Barkod", "Ürün Adı", "Marka", "Kategori", "Birim", "Satış Fiyatı", "Durum"]}
-        rows={(products.data ?? []).map((p) => {
+        rows={filteredProducts.map((p) => {
           const row = [
             <Typography variant="body2" fontWeight={700} color="primary.main">{p.code}</Typography>,
             p.barcode || <span style={{ opacity: 0.5 }}>-</span>,
@@ -354,14 +528,73 @@ export function ProductsPage() {
           ];
           if (canManage) {
             row.push(
-              <IconButton color="primary" onClick={() => startEdit(p)} size="small" title="Düzenle">
-                <EditIcon fontSize="small" />
-              </IconButton>
+              <Box sx={{ display: "flex", gap: 0.5 }}>
+                <Tooltip title="Düzenle">
+                  <IconButton color="primary" onClick={() => startEdit(p)} size="small">
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Sil">
+                  <IconButton color="error" onClick={() => setDeleteTarget(p)} size="small">
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             );
           }
           return row;
         })}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Ürünü Sil</DialogTitle>
+        <DialogContent>
+          <Typography>
+            <strong>{deleteTarget?.name}</strong> adlı ürünü silmek istediğinizden emin misiniz?
+            Bu işlem geri alınamaz.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+            Not: Ürüne ait stok hareketleri veya faturalar varsa silme işlemi başarısız olacaktır.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outlined" onClick={() => setDeleteTarget(null)}>
+            İptal
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={remove.isPending}
+            onClick={() => deleteTarget && remove.mutate(deleteTarget.id)}
+          >
+            {remove.isPending ? "Siliniyor..." : "Evet, Sil"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar feedback */}
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={4000}
+        onClose={() => setSnack(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          severity={snack.severity}
+          variant="filled"
+          onClose={() => setSnack(s => ({ ...s, open: false }))}
+          sx={{ borderRadius: 2, fontWeight: 600 }}
+        >
+          {snack.message}
+        </Alert>
+      </Snackbar>
     </Stack>
   );
 }
