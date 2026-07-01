@@ -16,17 +16,21 @@ import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOffOutlined";
 import { useAuth } from "../auth/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Get the original page they tried to access or default to "/"
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +41,7 @@ export function LoginPage() {
 
     try {
       await login(username.trim(), password);
-      navigate("/", { replace: true });
+      navigate(from, { replace: true });
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string } } };
       setError(

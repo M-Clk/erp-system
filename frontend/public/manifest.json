@@ -1,0 +1,33 @@
+{
+  "name": "Nirvana ERP System",
+  "short_name": "Nirvana ERP",
+  "description": "Modern Stok, Satış, Depo ve Müşteri Yönetim Platformu",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#6366f1",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "POS Kasası",
+      "short_name": "POS",
+      "description": "POS Hızlı Satış Ekranını Aç",
+      "url": "/pos",
+      "icons": [
+        {
+          "src": "/logo.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
