@@ -30,6 +30,8 @@ app.UseCors("LanClients");
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseMiddleware<ERP.Api.Middleware.LicenseMiddleware>();
+
 app.MapControllers();
 
 app.Run();

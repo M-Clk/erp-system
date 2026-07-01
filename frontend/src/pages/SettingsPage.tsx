@@ -53,9 +53,11 @@ import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
 import StarOutlineIcon from "@mui/icons-material/StarOutline";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import KeyIcon from "@mui/icons-material/Key";
 
 import { useThemeMode } from "../theme/ThemeContext";
 import { useAuth } from "../auth/AuthContext";
+import { useLicense } from "../context/LicenseContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/apiClient";
 import {
@@ -1192,6 +1194,133 @@ function UnitsTab() {
   );
 }
 
+// ─── Lisans Tab Content ──────────────────────────────────────────────────────────
+
+function LicenseTabContent() {
+  const { licenseInfo, isLicenseValid, activate } = useLicense();
+  const [licenseKeyInput, setLicenseKeyInput] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const handleActivate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!licenseKeyInput.trim()) return;
+
+    setIsSubmitting(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const success = await activate(licenseKeyInput.trim());
+      if (success) {
+        setSuccessMsg("Lisans başarıyla güncellendi.");
+        setLicenseKeyInput("");
+      } else {
+        setErrorMsg("Lisans anahtarı doğrulanamadı.");
+      }
+    } catch (err) {
+      setErrorMsg("Bir hata oluştu.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Box>
+      <Stack spacing={3}>
+        {/* Durum Kartı */}
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Box>
+            <Typography variant="body2" color="text.secondary" fontWeight={500}>Lisans Durumu</Typography>
+            <Typography variant="body1" fontWeight={700} sx={{ mt: 0.5 }}>
+              {isLicenseValid ? "Sistem Aktif ve Lisanslı" : "Lisans Geçersiz / Süresi Dolmuş"}
+            </Typography>
+          </Box>
+          <Chip 
+            label={isLicenseValid ? "Aktif" : "Geçersiz"} 
+            color={isLicenseValid ? "success" : "error"} 
+            size="small" 
+            sx={{ fontWeight: 700 }}
+          />
+        </Stack>
+
+        <Divider />
+
+        {/* Lisans Detayları */}
+        {licenseInfo && (
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="body2" color="text.secondary">Lisans Sahibi (Müşteri)</Typography>
+              <Typography variant="body1" fontWeight={600}>{licenseInfo.customerName || "—"}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="body2" color="text.secondary">Son Kullanma Tarihi</Typography>
+              <Typography variant="body1" fontWeight={600}>
+                {licenseInfo.expirationDate ? new Date(licenseInfo.expirationDate).toLocaleDateString() : "—"}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="body2" color="text.secondary">Kullanıcı Sınırı</Typography>
+              <Typography variant="body1" fontWeight={600}>{licenseInfo.maxUsers ? `${licenseInfo.maxUsers} Kullanıcı` : "Sınırsız"}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="body2" color="text.secondary">İzin Verilen Modüller</Typography>
+              <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                {licenseInfo.allowedFeatures && licenseInfo.allowedFeatures.length > 0 ? (
+                  licenseInfo.allowedFeatures.map((f, i) => (
+                    <Chip key={i} label={f} size="small" variant="outlined" />
+                  ))
+                ) : (
+                  <Chip label="Tümü" size="small" variant="outlined" />
+                )}
+              </Stack>
+            </Box>
+          </Stack>
+        )}
+
+        <Divider />
+
+        {/* Lisans Güncelleme Formu */}
+        <Box component="form" onSubmit={handleActivate}>
+          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Lisansı Güncelle</Typography>
+          <TextField
+            placeholder="Yeni lisans anahtarını buraya yapıştırın..."
+            multiline
+            rows={4}
+            fullWidth
+            value={licenseKeyInput}
+            onChange={(e) => setLicenseKeyInput(e.target.value)}
+            disabled={isSubmitting}
+            size="small"
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                fontFamily: "monospace",
+                fontSize: "0.8rem",
+                bgcolor: "action.hover"
+              },
+              mb: 2
+            }}
+          />
+
+          {errorMsg && <Alert severity="error" sx={{ borderRadius: 2, mb: 2 }}>{errorMsg}</Alert>}
+          {successMsg && <Alert severity="success" sx={{ borderRadius: 2, mb: 2 }}>{successMsg}</Alert>}
+
+          <Button
+            type="submit"
+            variant="contained"
+            size="small"
+            disabled={isSubmitting || !licenseKeyInput.trim()}
+            sx={{ borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+          >
+            {isSubmitting ? <CircularProgress size={20} color="inherit" /> : "Lisans Anahtarını Kaydet"}
+          </Button>
+        </Box>
+      </Stack>
+    </Box>
+  );
+}
+
 // ─── Profil Tab Content ──────────────────────────────────────────────────────────
 
 function ProfileTabContent() {
@@ -1311,6 +1440,11 @@ export function SettingsPage() {
           label: "Kasalar", 
           icon: <PointOfSaleOutlinedIcon fontSize="small" />, 
           component: <SettingsSection title="Kasalar" icon={<PointOfSaleOutlinedIcon fontSize="small" />}><TerminalsTab /></SettingsSection> 
+        },
+        { 
+          label: "Lisans", 
+          icon: <KeyIcon fontSize="small" />, 
+          component: <SettingsSection title="Lisans Bilgileri" icon={<KeyIcon fontSize="small" />}><LicenseTabContent /></SettingsSection> 
         }
       );
     }

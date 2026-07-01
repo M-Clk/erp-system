@@ -17,6 +17,7 @@ public class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbContext(op
     public DbSet<Unit> Units => Set<Unit>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
 
     public async Task<IErpTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
@@ -170,6 +171,15 @@ public class ErpDbContext(DbContextOptions<ErpDbContext> options) : DbContext(op
                 IsActive = true,
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             });
+        });
+
+        modelBuilder.Entity<SystemSetting>(entity =>
+        {
+            entity.ToTable("SystemSettings");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Key).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Value).IsRequired();
+            entity.HasIndex(x => x.Key).IsUnique();
         });
     }
 }

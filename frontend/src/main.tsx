@@ -58,6 +58,8 @@ import "./styles.css";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import { PrivateRoute } from "./auth/PrivateRoute";
+import { LicenseProvider } from "./context/LicenseContext";
+import { LicenseOverlay } from "./components/LicenseOverlay";
 
 const queryClient = new QueryClient();
 const SIDEBAR_WIDTH = 260;
@@ -342,27 +344,30 @@ function App() {
       <CssBaseline />
       <BrowserRouter>
         <AuthProvider>
-          <CartProvider>
-            <Routes>
-              {/* Public route — herkese açık */}
-              <Route path="/login" element={<LoginPage />} />
+          <LicenseProvider>
+            <CartProvider>
+              <LicenseOverlay />
+              <Routes>
+                {/* Public route — herkese açık */}
+                <Route path="/login" element={<LoginPage />} />
 
-              {/* Protected routes — JWT zorunlu */}
-              <Route element={<PrivateRoute />}>
-                <Route element={<MainLayout />}>
-                  <Route index element={<DashboardPage />} />
-                  <Route path="products" element={<ProductsPage />} />
-                  <Route path="sales" element={<AllowedRolesRoute roles={["Admin", "Manager"]}><SalesPage /></AllowedRolesRoute>} />
-                  <Route path="stock" element={<StockMovementsPage />} />
-                  <Route path="customers" element={<CustomersPage />} />
-                  <Route path="warehouses" element={<WarehousesPage />} />
-                  <Route path="pos" element={<POSPage />} />
-                  <Route path="users" element={<AllowedRolesRoute roles={["Admin"]}><UsersPage /></AllowedRolesRoute>} />
-                  <Route path="settings" element={<SettingsPage />} />
+                {/* Protected routes — JWT zorunlu */}
+                <Route element={<PrivateRoute />}>
+                  <Route element={<MainLayout />}>
+                    <Route index element={<DashboardPage />} />
+                    <Route path="products" element={<ProductsPage />} />
+                    <Route path="sales" element={<AllowedRolesRoute roles={["Admin", "Manager"]}><SalesPage /></AllowedRolesRoute>} />
+                    <Route path="stock" element={<StockMovementsPage />} />
+                    <Route path="customers" element={<CustomersPage />} />
+                    <Route path="warehouses" element={<WarehousesPage />} />
+                    <Route path="pos" element={<POSPage />} />
+                    <Route path="users" element={<AllowedRolesRoute roles={["Admin"]}><UsersPage /></AllowedRolesRoute>} />
+                    <Route path="settings" element={<SettingsPage />} />
+                  </Route>
                 </Route>
-              </Route>
-            </Routes>
-          </CartProvider>
+              </Routes>
+            </CartProvider>
+          </LicenseProvider>
         </AuthProvider>
       </BrowserRouter>
     </AppThemeProvider>

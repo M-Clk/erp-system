@@ -36,6 +36,11 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    if (error.response?.status === 402) {
+      window.dispatchEvent(new Event("license-expired"));
+      return Promise.reject(error);
+    }
+
     // Refresh token isteği başarısız olduysa veya login sayfasındaysak çık
     if (
       error.response?.status !== 401 ||

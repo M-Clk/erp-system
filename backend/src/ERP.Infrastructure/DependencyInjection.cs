@@ -1,5 +1,7 @@
 using ERP.Application.Abstractions;
+using ERP.Application.Services;
 using ERP.Infrastructure.Persistence;
+using ERP.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -38,6 +40,9 @@ public static class DependencyInjection
                     NameClaimType = ClaimTypes.Name
                 };
             });
+
+        // License Service
+        services.AddSingleton<ILicenseService, LicenseService>();
 
         return services;
     }
